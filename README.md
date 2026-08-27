@@ -1,0 +1,110 @@
+# loterias-caixa
+
+Biblioteca Node.js para consultar os resultados das loterias da Caixa
+Econômica Federal (Mega-Sena, Quina, Lotofácil e outras 8 modalidades).
+
+A Caixa não publica uma API oficial de consulta. Esta lib encapsula o acesso
+à API interna do Portal de Loterias e devolve os dados já normalizados em
+tipos TypeScript estáveis, para que aplicações não precisem lidar com o
+formato bruto da Caixa (datas `dd/MM/yyyy`, campos com lixo, nomes de campo
+em português).
+
+**Zero dependências de runtime.** Só usa o que já vem no Node.
+
+Escrita em TypeScript, distribuída como ESM. Consumidores CommonJS podem usar
+`require()` normalmente (Node 22.12+).
+
+## Instalação
+
+```bash
+npm install loterias-caixa
+```
+
+Requer Node.js >= 22.12.0.
+
+## Uso
+
+```ts
+import { getSupportedLotteries, getLatestDraw } from 'loterias-caixa';
+
+// Modalidades suportadas
+getSupportedLotteries();
+// [{ code: 'megasena', name: 'Mega-Sena' }, { code: 'quina', name: 'Quina' }, ...]
+
+// Último resultado de uma loteria
+const draw = await getLatestDraw('megasena');
+console.log(draw.contestNumber, draw.isAccumulated, draw.drawDate);
+```
+
+> As funções de consulta ainda estão em implementação — veja o TODO abaixo.
+> Hoje o catálogo de modalidades (`getSupportedLotteries`, `isSupportedLottery`,
+> `getLotteryName`) já está disponível.
+
+## API pretendida
+
+| Função | Descrição |
+| --- | --- |
+| `getSupportedLotteries()` | Lista as modalidades suportadas (código + nome). |
+| `getLatestDraw(code)` | Resultado do último concurso de uma loteria. |
+| `getDraw(code, contestNumber)` | Resultado de um concurso específico. |
+| `getAllLatestDraws()` | Último resultado de todas as modalidades suportadas. |
+
+Todas retornam dados suficientes para popular a entidade `draw` do
+[schema do backend](../loterias-app-backend/docs/firestore_schema.md), usando
+tipos nativos (`Date`, `number`) — a conversão para `Timestamp` do Firestore é
+responsabilidade de quem consome.
+
+## Desenvolvimento
+
+```bash
+npm install
+npm test              # suíte de testes (roda direto no fonte TypeScript)
+npm run test:coverage # com relatório de cobertura
+npm run typecheck     # valida tipos sem emitir
+npm run build         # gera dist/
+```
+
+Os testes rodam sobre os arquivos `.ts` sem etapa de build, usando o suporte
+nativo do Node a TypeScript e o runner `node:test`. Nenhum teste acessa a
+rede — a suíte passa offline.
+
+Convenções e decisões de arquitetura estão em [CLAUDE.md](CLAUDE.md).
+
+## Licença
+
+[MIT](LICENSE) © Daniel Campos
+
+Projeto independente, sem qualquer vínculo com a Caixa Econômica Federal. Os
+dados consultados são de origem pública.
+
+## TODO - Próximos passos
+
+**Fundação**
+- [x] Inicializar o projeto Node + TypeScript (ESM, zero dependências de runtime)
+- [x] Definir os tipos públicos (`Draw`, `Lottery`, `LotteryCode`)
+- [x] Implementar o catálogo de modalidades suportadas (`getSupportedLotteries`)
+- [x] Adicionar arquivo `LICENSE` (MIT)
+- [x] Confirmar o nome final do pacote no npm antes do primeiro publish
+
+**Núcleo da biblioteca**
+- [ ] Implementar `src/errors.ts` com a hierarquia de erros (rede, timeout, concurso inexistente, resposta inválida)
+- [ ] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
+- [ ] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
+- [ ] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
+- [ ] Implementar `getLatestDraw(code)`
+- [ ] Implementar `getDraw(code, contestNumber)`
+- [ ] Implementar `getAllLatestDraws()` com execução concorrente e tolerância a falha parcial
+
+**Lacunas de dados a resolver**
+- [ ] Decidir a origem de `drawDaysOfWeek` e `drawTime` (não vêm na API — provavelmente metadados estáticos no catálogo)
+- [ ] Investigar de onde obter `nextSpecialDrawDate` (a API só expõe o valor acumulado do concurso especial)
+
+**Qualidade**
+- [ ] Capturar fixtures de resposta real das 11 modalidades para os testes
+- [ ] Cobrir `client.ts` e `mapper.ts` com testes (erros de rede, HTTP não-2xx, JSON malformado, campos ausentes)
+- [ ] Atingir e manter 100% de cobertura de linhas e branches
+- [ ] Configurar CI (GitHub Actions) rodando typecheck + testes + cobertura
+
+**Publicação**
+- [ ] Publicar a versão `0.1.0` no npm
+- [ ] Integrar a lib ao worker diário do `loterias-app-backend`

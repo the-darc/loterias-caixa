@@ -1,0 +1,44 @@
+{
+  "name": "loterias-caixa",
+  "version": "0.1.0",
+  "description": "Biblioteca Node.js para consultar os resultados das loterias da Caixa Econômica Federal. Zero dependências de runtime.",
+  "license": "MIT",
+  "author": "Daniel Campos",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "test:watch": "node --test --watch",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
+  },
+  "keywords": [
+    "loteria",
+    "loterias",
+    "caixa",
+    "megasena",
+    "quina",
+    "lotofacil",
+    "brasil"
+  ],
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
