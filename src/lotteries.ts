@@ -1,3 +1,4 @@
+import { UnsupportedLotteryError } from './errors.ts';
 import type { Lottery, LotteryCode } from './types/public.ts';
 
 const LOTTERIES: readonly Lottery[] = Object.freeze([
@@ -25,7 +26,7 @@ export function isSupportedLottery(code: string): code is LotteryCode {
 export function getLotteryName(code: LotteryCode): string {
   const lottery = LOTTERIES.find((item) => item.code === code);
   if (!lottery) {
-    throw new Error(`Loteria não suportada: ${code}`);
+    throw new UnsupportedLotteryError(code);
   }
   return lottery.name;
 }

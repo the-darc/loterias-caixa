@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { UnsupportedLotteryError } from '../src/errors.ts';
 import { getLotteryName, getSupportedLotteries, isSupportedLottery } from '../src/lotteries.ts';
 
 test('getSupportedLotteries retorna as 11 modalidades da Caixa', () => {
@@ -42,9 +43,14 @@ test('getLotteryName resolve o nome de exibição', () => {
   assert.equal(getLotteryName('maismilionaria'), '+Milionária');
 });
 
-test('getLotteryName lança para código não suportado', () => {
+test('getLotteryName lança UnsupportedLotteryError para código não suportado', () => {
   assert.throws(
     () => getLotteryName('inexistente' as never),
-    /Loteria não suportada: inexistente/,
+    (erro: unknown) => {
+      assert.ok(erro instanceof UnsupportedLotteryError);
+      assert.equal(erro.code, 'inexistente');
+      assert.match(erro.message, /Loteria não suportada: inexistente/);
+      return true;
+    },
   );
 });

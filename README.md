@@ -49,6 +49,38 @@ console.log(draw.contestNumber, draw.isAccumulated, draw.drawDate);
 | `getDraw(code, contestNumber)` | Resultado de um concurso específico. |
 | `getAllLatestDraws()` | Último resultado de todas as modalidades suportadas. |
 
+## Tratamento de erros
+
+Toda falha lançada pela lib é instância de `LotteryError`, para que dê para
+distinguir "a Caixa caiu" de "esse concurso não existe" sem inspecionar a
+mensagem:
+
+```
+LotteryError
+  ├── UnsupportedLotteryError   código de loteria fora do catálogo
+  ├── NetworkError              falha de comunicação com a Caixa
+  │     └── TimeoutError        a requisição estourou o tempo limite
+  ├── HttpError                 a Caixa respondeu com status não-2xx
+  ├── DrawNotFoundError         o concurso pedido não existe
+  └── InvalidResponseError      resposta ilegível ou fora do formato
+```
+
+```ts
+import { getDraw, DrawNotFoundError, NetworkError } from 'loterias-caixa';
+
+try {
+  await getDraw('megasena', 9999);
+} catch (error) {
+  if (error instanceof DrawNotFoundError) return null; // concurso ainda não sorteado
+  if (error instanceof NetworkError) throw error;      // vale tentar de novo depois
+  throw error;
+}
+```
+
+Cada classe carrega o contexto da falha em campos próprios (`status` e `url`
+em `HttpError`, `timeoutMs` em `TimeoutError`, `lotteryCode`/`contestNumber` em
+`DrawNotFoundError`) e preserva a causa original em `cause`.
+
 Todas retornam dados suficientes para popular a entidade `draw` do
 [schema do backend](../loterias-app-backend/docs/firestore_schema.md), usando
 tipos nativos (`Date`, `number`) — a conversão para `Timestamp` do Firestore é
@@ -87,7 +119,7 @@ dados consultados são de origem pública.
 - [x] Confirmar o nome final do pacote no npm antes do primeiro publish
 
 **Núcleo da biblioteca**
-- [ ] Implementar `src/errors.ts` com a hierarquia de erros (rede, timeout, concurso inexistente, resposta inválida)
+- [x] Implementar `src/errors.ts` com a hierarquia de erros (rede, timeout, concurso inexistente, resposta inválida)
 - [ ] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
 - [ ] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
 - [ ] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
