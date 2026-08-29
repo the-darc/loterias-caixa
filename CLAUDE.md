@@ -22,9 +22,13 @@ que fazer com eles.
 oferece: `fetch` global, `URL`, `AbortSignal.timeout()`, `node:test`.
 
 Antes de adicionar qualquer dependência (mesmo dev), pare e justifique. Hoje
-a única devDependency é o `typescript`. Um parser de HTML, um cliente HTTP ou
-um framework de teste seriam regressões — o Node 22+ já resolve os três
-casos.
+são duas devDependencies: `typescript` e `@types/node` (só tipos, não vai para
+o pacote — `files` publica apenas `dist/`; é o que dá tipo a `fetch`,
+`node:test` e afins). Um parser de HTML, um cliente HTTP ou um framework de
+teste seriam regressões — o Node 22+ já resolve os três casos.
+
+O TypeScript 7 **não inclui `@types` automaticamente**: sem `"types": ["node"]`
+no `tsconfig.json`, todo import de `node:*` falha com "Cannot find name".
 
 ## Fonte de dados
 
@@ -59,8 +63,34 @@ Por ser endpoint não documentado, trate-o como **instável**:
 - Valores monetários já vêm como `number` em reais (ex: `18908975.38`), não
   em centavos.
 - `numero` é o número do concurso; `acumulado` é o booleano de acúmulo.
-- `valorTotalPremioFaixaUm` é o prêmio da faixa principal — vem `0` quando
-  acumulou.
+- `dataProximoConcurso` vem `""` (string vazia, **não** `null`) quando não há
+  próximo concurso agendado — é o caso da Federal.
+- **`valorTotalPremioFaixaUm` não é confiável.** As fixtures desmentem os dois
+  sentidos: a Federal não acumulou, teve ganhador de R$ 500 mil, e o campo veio
+  `0`; a +Milionária e a Super Sete acumularam com zero ganhadores e o campo
+  veio preenchido. A fonte do prêmio é a **faixa 1 de `listaRateioPremio`**
+  (`valorPremio`), que é coerente em todas as 11 modalidades.
+- **`ultimoConcurso` vem `true` até em concurso antigo** (confirmado em
+  `megasena/2500`). Não serve para saber se o concurso é o mais recente.
+- `nomeTimeCoracaoMesSorte` vem com 17 bytes NUL onde não se aplica, `null` em
+  outras, e com padding de espaços quando real (`"ATHLETICO        /PR"`).
+- `listaDezenas` é `null` na Loteca; `listaDezenasSegundoSorteio` só a Dupla
+  Sena preenche; `trevosSorteados` só existe na +Milionária.
+
+### Como a Caixa reporta erro (importa para o client)
+
+Concurso inexistente **não** devolve 404. A Caixa responde **HTTP 500** com
+`message: "Ocorreu um erro inesperado."` e esconde o status verdadeiro dentro
+de `exceptionMessage`, que é um JSON serializado com `StatusCode` — `412` para
+concurso além do último, `404` para concurso `0`. Duas consequências:
+
+- Não dá para distinguir "concurso não existe" de "a Caixa caiu" pelo status
+  externo; o client precisa abrir o envelope antes de decidir entre
+  `DrawNotFoundError` e `HttpError`.
+- Retry cego em 500 desperdiça tentativas num erro que nunca vai passar.
+
+Modalidade/rota inexistente é o outro formato: HTTP 404 com `Message` e
+`MessageDetail` (maiúsculas, padrão do ASP.NET Web API).
 
 ### Lacunas conhecidas do payload
 
@@ -85,7 +115,10 @@ src/
   types/
     public.ts       tipos exportados (Draw, Lottery, LotteryCode)
     caixa.ts        shape bruto da resposta da Caixa (interno)
-test/               testes de unidade (node:test, arquivos *.test.ts)
+test/
+  *.test.ts         testes de unidade (node:test)
+  fixtures.ts       helpers de leitura das fixtures (não é arquivo de teste)
+  fixtures/         respostas reais da Caixa, verbatim — veja o README de lá
 ```
 
 Regra: **tudo que é público sai por `src/index.ts`.** Se um tipo ou função
@@ -128,6 +161,20 @@ linhas e branches é alcançável e é o alvo.
   flaky por definição e não entra na suíte.
 - Cobrir significa: caminho feliz, erro de rede/timeout, HTTP não-2xx, JSON
   malformado, código de loteria inválido, e cada campo opcional ausente.
+- As fixtures de `test/fixtures/` são respostas **reais e verbatim** da Caixa
+  (11 modalidades, um concurso antigo e os três formatos de erro). Use-as em
+  vez de inventar payload — payload inventado esconde exatamente as
+  irregularidades que quebram a lib em produção.
+- `caixa-shape.test.ts` compara cada fixture com `src/types/caixa.ts` e falha
+  se aparecer campo novo, sumir campo ou mudar tipo. Se ele quebrar depois de
+  recapturar fixtures, o endpoint mudou — atualize o tipo, não o teste.
+- A descoberta de testes é por glob (`test/**/*.test.ts`), não a padrão do
+  Node: só assim dá para ter helper (`test/fixtures.ts`) dentro de `test/`
+  sem o runner tentar executá-lo como suíte.
+- `npm run typecheck` valida `src` **e** `test` (via `tsconfig.test.json`). É o
+  que faz valer truques de tipo nos testes, como a tabela
+  `Record<keyof CaixaDrawResponse, Check>`, que quebra o build se um campo
+  entrar no tipo sem validação correspondente.
 
 ```bash
 npm test              # roda a suíte

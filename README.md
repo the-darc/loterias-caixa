@@ -98,7 +98,8 @@ npm run build         # gera dist/
 
 Os testes rodam sobre os arquivos `.ts` sem etapa de build, usando o suporte
 nativo do Node a TypeScript e o runner `node:test`. Nenhum teste acessa a
-rede — a suíte passa offline.
+rede — a suíte passa offline, sobre as respostas reais guardadas em
+[test/fixtures/](test/fixtures/README.md).
 
 Convenções e decisões de arquitetura estão em [CLAUDE.md](CLAUDE.md).
 
@@ -120,7 +121,7 @@ dados consultados são de origem pública.
 
 **Núcleo da biblioteca**
 - [x] Implementar `src/errors.ts` com a hierarquia de erros (rede, timeout, concurso inexistente, resposta inválida)
-- [ ] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
+- [x] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
 - [ ] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
 - [ ] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
 - [ ] Implementar `getLatestDraw(code)`
@@ -132,7 +133,7 @@ dados consultados são de origem pública.
 - [ ] Investigar de onde obter `nextSpecialDrawDate` (a API só expõe o valor acumulado do concurso especial)
 
 **Qualidade**
-- [ ] Capturar fixtures de resposta real das 11 modalidades para os testes
+- [x] Capturar fixtures de resposta real das 11 modalidades para os testes
 - [ ] Cobrir `client.ts` e `mapper.ts` com testes (erros de rede, HTTP não-2xx, JSON malformado, campos ausentes)
 - [ ] Atingir e manter 100% de cobertura de linhas e branches
 - [ ] Configurar CI (GitHub Actions) rodando typecheck + testes + cobertura
