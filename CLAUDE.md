@@ -97,11 +97,31 @@ Modalidade/rota inexistente é o outro formato: HTTP 404 com `Message` e
 Nem tudo que o backend precisa existe na resposta. Não invente valor nem
 finja que o campo existe; deixe opcional e documente:
 
-- `nextSpecialDrawDate` — não vem no payload (só o valor acumulado do
-  concurso especial, em `valorAcumuladoConcursoEspecial`).
-- `drawDaysOfWeek` e `drawTime` — não vêm no payload. São metadados estáveis
-  por modalidade; se forem necessários, entram como dados estáticos no
-  catálogo de `src/lotteries.ts`, não como campo do resultado.
+Decidido em 29/08/2026 (antes era questão aberta):
+
+- `drawDaysOfWeek` — vem do calendário estático de `src/calendar.ts`, que o
+  mapper junta à resposta da API. Não é campo da Caixa.
+- `drawTime` — **não entra na superfície pública.** Fica registrado no
+  calendário como documentação: horário de parede sem timezone vira bug em
+  quem roda em UTC (o padrão das Cloud Functions).
+- `nextSpecialDrawDate` — não vem no payload, é **projetado** sobre o
+  calendário para as modalidades que acumulam em concurso de final 0/5. O
+  algoritmo e as ressalvas estão no TODO do README. É estimativa declarada,
+  não dado da Caixa.
+
+### O calendário é dado mantido à mão
+
+`src/calendar.ts` é a única tabela estática do projeto, e é assim de
+propósito: sem lógica dentro, para que atualizar a agenda seja um PR de uma
+linha quando a Caixa mudar (como mudou em julho de 2026, movendo os sorteios
+de sábado para domingo de manhã).
+
+- Nada de espalhar dia de sorteio ou horário por outros arquivos.
+- Toda mudança na tabela sobe versão — é comportamento observável.
+- `calendar.test.ts` confere a tabela contra o dia da semana real das fixtures.
+  Se ele quebrar, ou a tabela está errada ou a Caixa mudou a agenda.
+- A Loteca é a exceção do conjunto: o calendário dela é o da **apuração**
+  (segunda), e o `dataProximoConcurso` que a API devolve cai em outro dia.
 
 ## Estrutura
 
@@ -109,6 +129,7 @@ finja que o campo existe; deixe opcional e documente:
 src/
   index.ts          superfície pública (barrel) — o único ponto de exportação
   lotteries.ts      catálogo estático das modalidades suportadas
+  calendar.ts       dias e horários de sorteio (dado estático, mantido à mão)
   client.ts         acesso HTTP à Caixa (timeout, retry, erros)
   mapper.ts         resposta da Caixa -> tipos públicos
   errors.ts         hierarquia de erros da lib

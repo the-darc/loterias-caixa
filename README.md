@@ -86,6 +86,25 @@ Todas retornam dados suficientes para popular a entidade `draw` do
 tipos nativos (`Date`, `number`) — a conversão para `Timestamp` do Firestore é
 responsabilidade de quem consome.
 
+## Calendário de sorteios
+
+A Caixa não informa em que dias cada modalidade sorteia — o payload só traz a
+data do próximo concurso. Esses dados moram numa tabela estática em
+[src/calendar.ts](src/calendar.ts), e a lib os junta à resposta da API para
+preencher `drawDaysOfWeek`.
+
+Ser estático tem um custo conhecido: quando a Caixa muda a agenda (como fez em
+julho de 2026, movendo os sorteios de sábado para a manhã de domingo), a tabela
+envelhece até alguém atualizá-la. A aposta é que **um arquivo único, sem lógica
+dentro, é fácil de corrigir por qualquer pessoa** — se você notou uma agenda
+errada, abra um PR mudando só esse arquivo. Os testes conferem a tabela contra
+o dia da semana real das respostas guardadas em `test/fixtures/`.
+
+O horário de cada sorteio está registrado lá, mas **não sai na resposta da
+lib**: um horário de parede sem timezone é fonte garantida de bug em quem roda
+em UTC. Ele fica no arquivo como documentação e para permitir conferência
+contra a fonte oficial.
+
 ## Desenvolvimento
 
 ```bash
@@ -124,13 +143,26 @@ dados consultados são de origem pública.
 - [x] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
 - [ ] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
 - [ ] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
+  - `prizeValue` sai da **faixa 1 de `listaRateioPremio`**, não de `valorTotalPremioFaixaUm` (que é incoerente — veja o CLAUDE.md)
+  - `drawDaysOfWeek` sai de `getDrawDaysOfWeek(code)`, do calendário — não da API
+  - `nomeTimeCoracaoMesSorte` precisa de limpeza (bytes NUL e padding de espaço) antes de virar dado
+- [ ] Implementar a projeção de `nextSpecialDrawDate` sobre o calendário:
+  1. Sem projeção quando `valorAcumuladoConcurso_0_5 <= 0` ou `numeroConcursoFinal_0_5 === 0` — `0` é o sentinela de "não se aplica", e é o caso de 6 das 11 modalidades. O campo fica ausente.
+  2. `saltos = numeroConcursoFinal_0_5 - numeroConcursoProximo`. Negativo é dado incoerente: deixe ausente, não invente.
+  3. Com `saltos === 0`, a data é o próprio `dataProximoConcurso`.
+  4. Senão, ande `saltos` dias de sorteio a partir de `dataProximoConcurso`, contando só os dias que estão em `getDrawDaysOfWeek(code)`.
+  - Exemplo conferido na fixture: Mega-Sena no 3050, próximo 3051 em 30/08 (dom), alvo 3055 -> ter 01/09, qui 03/09, dom 06/09, **ter 08/09**.
+  - É **estimativa**, e o tipo público já diz isso: ignora feriado, concurso especial que quebra a cadência e mudança futura de calendário.
+  - Só faz sentido para o último concurso. O calendário é o de hoje — a fixture `megasena/2500` (2022, quartas e sábados) prova que projetar concurso antigo com ele dá data errada.
+  - Atenção à Loteca: ela acumula em final 0/5 (alvo 1270), mas o calendário dela é o da **apuração** (segunda) e o `dataProximoConcurso` cai no sábado. A caminhada precisa lidar com data de partida fora do calendário.
 - [ ] Implementar `getLatestDraw(code)`
 - [ ] Implementar `getDraw(code, contestNumber)`
 - [ ] Implementar `getAllLatestDraws()` com execução concorrente e tolerância a falha parcial
 
-**Lacunas de dados a resolver**
-- [ ] Decidir a origem de `drawDaysOfWeek` e `drawTime` (não vêm na API — provavelmente metadados estáticos no catálogo)
-- [ ] Investigar de onde obter `nextSpecialDrawDate` (a API só expõe o valor acumulado do concurso especial)
+**Lacunas de dados — decididas em 29/08/2026**
+- [x] `drawDaysOfWeek`: tabela estática em `src/calendar.ts`, juntada à resposta da API pelo mapper
+- [x] `drawTime`: **não** entra na resposta pública; fica no calendário como documentação
+- [x] `nextSpecialDrawDate`: projetado sobre o calendário, para as modalidades que acumulam em concurso de final 0/5
 
 **Qualidade**
 - [x] Capturar fixtures de resposta real das 11 modalidades para os testes

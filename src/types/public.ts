@@ -11,6 +11,9 @@ export type LotteryCode =
   | 'supersete'
   | 'maismilionaria';
 
+/** Dia da semana, na sigla de três letras usada por `drawDaysOfWeek`. */
+export type Weekday = 'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
+
 export interface Lottery {
   code: LotteryCode;
   name: string;
@@ -32,5 +35,16 @@ export interface Draw {
   nextContestAccumulatedValue: number;
   nextDrawPrizeEstimate: number;
   nextSpecialDrawAccumulatedValue?: number;
+  /**
+   * Data prevista do próximo concurso especial. Só vem quando a modalidade
+   * acumula para concursos de final 0/5 e há valor acumulado — é uma projeção
+   * sobre o calendário, não um dado da Caixa. Veja `src/calendar.ts`.
+   */
+  nextSpecialDrawDate?: Date;
+  /**
+   * Dias da semana em que a modalidade sorteia. Não vem da API: é juntado a
+   * partir do calendário estático de `src/calendar.ts`.
+   */
+  drawDaysOfWeek: Weekday[];
   drawnNumbers: string[];
 }
