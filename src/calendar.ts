@@ -35,19 +35,24 @@ export interface ScheduledDraw {
   time: string;
 }
 
+/** Os dias na ordem de `Date.prototype.getDay()` — domingo é 0. */
+export const WEEKDAYS: readonly Weekday[] = Object.freeze([
+  'SUN',
+  'MON',
+  'TUE',
+  'WED',
+  'THU',
+  'FRI',
+  'SAT',
+]);
+
 /**
- * Índice de cada dia como `Date.prototype.getDay()` devolve — domingo é 0.
- * É por ele que as listas abaixo são ordenadas.
+ * Índice de cada dia como `Date.prototype.getDay()` devolve. É por ele que as
+ * listas abaixo são ordenadas.
  */
-export const WEEKDAY_INDEX: Readonly<Record<Weekday, number>> = Object.freeze({
-  SUN: 0,
-  MON: 1,
-  TUE: 2,
-  WED: 3,
-  THU: 4,
-  FRI: 5,
-  SAT: 6,
-});
+export const WEEKDAY_INDEX: Readonly<Record<Weekday, number>> = Object.freeze(
+  Object.fromEntries(WEEKDAYS.map((weekday, index) => [weekday, index])),
+) as Readonly<Record<Weekday, number>>;
 
 const atNight = (weekday: Weekday): ScheduledDraw => ({ weekday, time: '21:00' });
 const sundayMorning: ScheduledDraw = { weekday: 'SUN', time: '11:00' };
@@ -90,4 +95,31 @@ export function getDrawSchedule(code: LotteryCode): readonly ScheduledDraw[] {
  */
 export function getDrawDaysOfWeek(code: LotteryCode): Weekday[] {
   return getDrawSchedule(code).map((draw) => draw.weekday);
+}
+
+/**
+ * Data do concurso que acontece `drawsAhead` sorteios depois de `from`,
+ * andando pelo calendário da modalidade.
+ *
+ * A data de partida **não precisa** ser dia de sorteio — a caminhada só conta
+ * os dias que estão no calendário, a partir do dia seguinte. Isso é o que faz
+ * a Loteca funcionar: o `dataProximoConcurso` dela cai no sábado, enquanto a
+ * apuração é na segunda.
+ *
+ * É projeção sobre a cadência semanal: ignora feriado, concurso especial que
+ * quebra a sequência e mudança futura de calendário. Só use para datas
+ * próximas, e só a partir do último concurso — o calendário aqui é o de hoje.
+ */
+export function addDrawDays(code: LotteryCode, from: Date, drawsAhead: number): Date {
+  const drawDays = new Set(getDrawDaysOfWeek(code));
+  const date = new Date(from.getTime());
+
+  for (let remaining = drawsAhead; remaining > 0; ) {
+    date.setUTCDate(date.getUTCDate() + 1);
+    if (drawDays.has(WEEKDAYS[date.getUTCDay()]!)) {
+      remaining--;
+    }
+  }
+
+  return date;
 }

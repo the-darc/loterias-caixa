@@ -1,3 +1,5 @@
+import type { LotteryError } from '../errors.ts';
+
 export type LotteryCode =
   | 'megasena'
   | 'quina'
@@ -47,4 +49,34 @@ export interface Draw {
    */
   drawDaysOfWeek: Weekday[];
   drawnNumbers: string[];
+  /**
+   * Dezenas do segundo sorteio. Só a Dupla Sena tem dois sorteios por
+   * concurso; nas demais modalidades o campo não vem.
+   */
+  secondDrawNumbers?: string[];
+  /** Trevos sorteados. Só a +Milionária tem; nas demais o campo não vem. */
+  bonusNumbers?: string[];
+  /**
+   * Time do coração (Timemania) ou mês da sorte (Dia de Sorte) — a Caixa
+   * manda os dois no mesmo campo. Vem limpo do padding de largura fixa da
+   * origem (`"ATHLETICO        /PR"` -> `"ATHLETICO/PR"`). Nas demais
+   * modalidades o campo não vem.
+   */
+  bonusName?: string;
+}
+
+/** Uma modalidade cuja consulta falhou, dentro de um resultado parcial. */
+export interface LotteryFailure {
+  code: LotteryCode;
+  error: LotteryError;
+}
+
+/**
+ * Resultado de `getAllLatestDraws()`. A consulta é tolerante a falha parcial:
+ * uma modalidade fora do ar não derruba as outras, e quem chama decide o que
+ * fazer com `failures` — ignorar, logar ou tentar de novo só as que falharam.
+ */
+export interface AllLatestDrawsResult {
+  draws: Draw[];
+  failures: LotteryFailure[];
 }

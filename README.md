@@ -25,29 +25,63 @@ Requer Node.js >= 22.12.0.
 ## Uso
 
 ```ts
-import { getSupportedLotteries, getLatestDraw } from 'loterias-caixa';
-
-// Modalidades suportadas
-getSupportedLotteries();
-// [{ code: 'megasena', name: 'Mega-Sena' }, { code: 'quina', name: 'Quina' }, ...]
+import { getLatestDraw, getDraw, getAllLatestDraws } from 'loterias-caixa';
 
 // Último resultado de uma loteria
 const draw = await getLatestDraw('megasena');
-console.log(draw.contestNumber, draw.isAccumulated, draw.drawDate);
+draw.contestNumber;         // 3050
+draw.isAccumulated;         // true
+draw.drawDate;              // Date (meia-noite UTC do dia do sorteio)
+draw.drawnNumbers;          // ['11', '14', '30', '38', '49', '55']
+draw.drawDaysOfWeek;        // ['SUN', 'TUE', 'THU']
+draw.nextDrawPrizeEstimate; // 30000000
+draw.nextSpecialDrawDate;   // Date — projeção do próximo concurso especial
+
+// Modalidades com resultado além das dezenas
+(await getLatestDraw('duplasena')).secondDrawNumbers;   // ['07', '11', ...] 2º sorteio
+(await getLatestDraw('maismilionaria')).bonusNumbers;   // ['1', '6'] trevos
+(await getLatestDraw('timemania')).bonusName;           // 'ATHLETICO/PR' time do coração
+(await getLatestDraw('diadesorte')).bonusName;          // 'Abril' mês da sorte
+
+// Um concurso específico
+const antigo = await getDraw('quina', 7000);
+
+// Todas as modalidades de uma vez, em paralelo e tolerante a falha parcial
+const { draws, failures } = await getAllLatestDraws();
+for (const falha of failures) {
+  console.warn(falha.code, falha.error.message);
+}
 ```
 
-> As funções de consulta ainda estão em implementação — veja o TODO abaixo.
-> Hoje o catálogo de modalidades (`getSupportedLotteries`, `isSupportedLottery`,
-> `getLotteryName`) já está disponível.
-
-## API pretendida
+## API
 
 | Função | Descrição |
 | --- | --- |
+| `getLatestDraw(code, options?)` | Resultado do último concurso de uma loteria. |
+| `getDraw(code, contestNumber, options?)` | Resultado de um concurso específico. |
+| `getAllLatestDraws(options?)` | Último resultado de todas as modalidades, em paralelo. |
 | `getSupportedLotteries()` | Lista as modalidades suportadas (código + nome). |
-| `getLatestDraw(code)` | Resultado do último concurso de uma loteria. |
-| `getDraw(code, contestNumber)` | Resultado de um concurso específico. |
-| `getAllLatestDraws()` | Último resultado de todas as modalidades suportadas. |
+| `isSupportedLottery(code)` | Type guard para código de modalidade. |
+| `getLotteryName(code)` | Nome de exibição de uma modalidade. |
+
+`options` aceita `timeoutMs` (10s), `retries` (2), `retryDelayMs` (300ms, com
+backoff exponencial) e `fetch` — este último existe para teste, não para uso
+em produção.
+
+**`getAllLatestDraws` nunca rejeita por falha de uma modalidade.** Ela devolve
+`{ draws, failures }`: quem falhou entra em `failures` com o erro, quem
+respondeu entra em `draws`, na ordem do catálogo. Um cronjob que atualiza 11
+loterias não deve perder as 10 boas porque uma caiu.
+
+Quatro modalidades têm resultado além das dezenas, e a lib devolve todos:
+`secondDrawNumbers` (o segundo sorteio da Dupla Sena), `bonusNumbers` (os
+trevos da +Milionária) e `bonusName` (o time do coração da Timemania e o mês
+da sorte do Dia de Sorte, que a Caixa manda no mesmo campo). Os campos só
+existem nas modalidades a que se aplicam — nas outras não vêm.
+
+**Só `getLatestDraw` projeta `nextSpecialDrawDate`.** A projeção usa o
+calendário de hoje, que não vale para concurso antigo — a Mega sorteava às
+quartas e sábados até 2024.
 
 ## Tratamento de erros
 
@@ -142,11 +176,8 @@ dados consultados são de origem pública.
 - [x] Implementar `src/errors.ts` com a hierarquia de erros (rede, timeout, concurso inexistente, resposta inválida)
 - [x] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
 - [x] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
-- [ ] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
-  - `prizeValue` sai da **faixa 1 de `listaRateioPremio`**, não de `valorTotalPremioFaixaUm` (que é incoerente — veja o CLAUDE.md)
-  - `drawDaysOfWeek` sai de `getDrawDaysOfWeek(code)`, do calendário — não da API
-  - `nomeTimeCoracaoMesSorte` precisa de limpeza (bytes NUL e padding de espaço) antes de virar dado
-- [ ] Implementar a projeção de `nextSpecialDrawDate` sobre o calendário:
+- [x] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
+- [x] Implementar a projeção de `nextSpecialDrawDate` sobre o calendário:
   1. Sem projeção quando `valorAcumuladoConcurso_0_5 <= 0` ou `numeroConcursoFinal_0_5 === 0` — `0` é o sentinela de "não se aplica", e é o caso de 6 das 11 modalidades. O campo fica ausente.
   2. `saltos = numeroConcursoFinal_0_5 - numeroConcursoProximo`. Negativo é dado incoerente: deixe ausente, não invente.
   3. Com `saltos === 0`, a data é o próprio `dataProximoConcurso`.
@@ -155,9 +186,10 @@ dados consultados são de origem pública.
   - É **estimativa**, e o tipo público já diz isso: ignora feriado, concurso especial que quebra a cadência e mudança futura de calendário.
   - Só faz sentido para o último concurso. O calendário é o de hoje — a fixture `megasena/2500` (2022, quartas e sábados) prova que projetar concurso antigo com ele dá data errada.
   - Atenção à Loteca: ela acumula em final 0/5 (alvo 1270), mas o calendário dela é o da **apuração** (segunda) e o `dataProximoConcurso` cai no sábado. A caminhada precisa lidar com data de partida fora do calendário.
-- [ ] Implementar `getLatestDraw(code)`
-- [ ] Implementar `getDraw(code, contestNumber)`
-- [ ] Implementar `getAllLatestDraws()` com execução concorrente e tolerância a falha parcial
+- [x] Implementar `getLatestDraw(code)`
+- [x] Implementar `getDraw(code, contestNumber)`
+- [x] Implementar `getAllLatestDraws()` com execução concorrente e tolerância a falha parcial
+- [x] Expor o resultado completo das 4 modalidades que têm mais que dezenas: `secondDrawNumbers` (Dupla Sena), `bonusNumbers` (+Milionária) e `bonusName` (Timemania e Dia de Sorte)
 
 **Lacunas de dados — decididas em 29/08/2026**
 - [x] `drawDaysOfWeek`: tabela estática em `src/calendar.ts`, juntada à resposta da API pelo mapper
@@ -167,8 +199,9 @@ dados consultados são de origem pública.
 **Qualidade**
 - [x] Capturar fixtures de resposta real das 11 modalidades para os testes
 - [x] Cobrir `client.ts` com testes (rede, timeout, HTTP não-2xx, erro disfarçado, JSON malformado, retry)
-- [ ] Cobrir `mapper.ts` com testes (campos ausentes, parse de data, limpeza do lixo da Caixa)
-- [ ] Atingir e manter 100% de cobertura de linhas e branches
+- [x] Cobrir `mapper.ts` com testes (campos ausentes, parse de data, projeção do especial)
+- [x] Cobrir as três funções públicas com testes (falha parcial, concorrência, propagação de erro)
+- [x] Atingir e manter 100% de cobertura de linhas e branches
 - [ ] Configurar CI (GitHub Actions) rodando typecheck + testes + cobertura
 
 **Publicação**

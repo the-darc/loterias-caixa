@@ -73,7 +73,11 @@ Por ser endpoint não documentado, trate-o como **instável**:
 - **`ultimoConcurso` vem `true` até em concurso antigo** (confirmado em
   `megasena/2500`). Não serve para saber se o concurso é o mais recente.
 - `nomeTimeCoracaoMesSorte` vem com 17 bytes NUL onde não se aplica, `null` em
-  outras, e com padding de espaços quando real (`"ATHLETICO        /PR"`).
+  outras, e com padding de largura fixa quando real (`"ATHLETICO        /PR"`,
+  `"BARRA FC         /SC"`). O mapper normaliza para `"ATHLETICO/PR"` e
+  `"BARRA FC/SC"` — junta o padding e cola o `/` da UF, mas preserva o espaço
+  entre palavras do nome. Quem consome não deveria saber que a origem é um
+  campo de tamanho fixo.
 - `listaDezenas` é `null` na Loteca; `listaDezenasSegundoSorteio` só a Dupla
   Sena preenche; `trevosSorteados` só existe na +Milionária.
 
@@ -131,7 +135,8 @@ src/
   lotteries.ts      catálogo estático das modalidades suportadas
   calendar.ts       dias e horários de sorteio (dado estático, mantido à mão)
   client.ts         acesso HTTP à Caixa (timeout, retry, erros)
-  mapper.ts         resposta da Caixa -> tipos públicos
+  mapper.ts         resposta da Caixa -> tipos públicos (valida campo a campo)
+  draws.ts          as três funções de consulta (client + mapper costurados)
   errors.ts         hierarquia de erros da lib
   types/
     public.ts       tipos exportados (Draw, Lottery, LotteryCode)
@@ -164,6 +169,17 @@ não está exportado lá, é interno e pode mudar sem major version.
 - Erros lançados pela lib devem ser instâncias das classes de `src/errors.ts`,
   nunca `Error` cru ou string — quem consome precisa distinguir "concurso não
   existe" de "a Caixa caiu".
+- **Função que devolve `Promise` nunca lança de forma síncrona.** Validação de
+  argumento também tem que virar rejeição, senão quem usa `.catch()` leva uma
+  exceção não capturada. Na prática: marque `async`, mesmo que o corpo só
+  delegue.
+- **Datas públicas são meia-noite UTC.** A Caixa manda `dd/MM/yyyy` sem
+  horário; fixar em UTC evita que o dia escorregue conforme o fuso de quem lê.
+- Campo opcional ausente **não entra no objeto** (nada de `{ campo: undefined }`):
+  `'campo' in draw` é o teste que quem consome vai fazer, e Firestore recusa
+  `undefined` por padrão.
+- Erro que não seja `LotteryError` é bug da lib, não falha de consulta:
+  `getAllLatestDraws` deixa subir em vez de embrulhar em `failures`.
 - Mensagens de erro e comentários em português; identificadores em inglês
   (mesma convenção do backend).
 

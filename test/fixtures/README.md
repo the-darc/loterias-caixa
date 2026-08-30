@@ -9,6 +9,7 @@ Capturadas em **29/08/2026**.
 ```
 latest/{code}.json      GET /portaldeloterias/api/{code}          (11 modalidades)
 contest/megasena-2500.json  GET /portaldeloterias/api/megasena/2500
+contest/timemania-2430.json GET /portaldeloterias/api/timemania/2430
 error/concurso-futuro.json  GET /portaldeloterias/api/megasena/99999  -> HTTP 500
 error/concurso-zero.json    GET /portaldeloterias/api/megasena/0      -> HTTP 500
 error/modalidade-inexistente.json  GET /portaldeloterias/api/naoexiste -> HTTP 404
@@ -38,6 +39,9 @@ descobre que o endpoint mudou.
   `dataProximoConcurso` e com `observacao: null`.
 - **Um concurso específico** (`megasena/2500`), para provar que o endpoint de
   concurso antigo devolve o mesmo shape do endpoint de último concurso.
+- **Um concurso da Timemania** (`2430`), porque o time sorteado ali tem espaço
+  no nome (`"BARRA FC         /SC"`). É o caso que separa limpar o padding de
+  largura fixa de simplesmente remover os espaços.
 - **Os erros**, porque a Caixa responde **HTTP 500** para concurso inexistente
   e esconde o status verdadeiro (412/404) dentro de `exceptionMessage`. O
   client precisa abrir esse envelope para distinguir "concurso não existe" de
