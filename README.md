@@ -141,7 +141,7 @@ dados consultados são de origem pública.
 **Núcleo da biblioteca**
 - [x] Implementar `src/errors.ts` com a hierarquia de erros (rede, timeout, concurso inexistente, resposta inválida)
 - [x] Mapear o shape bruto da resposta da Caixa em `src/types/caixa.ts`
-- [ ] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
+- [x] Implementar `src/client.ts`: acesso HTTP com timeout, retry e `fetch` injetável para teste
 - [ ] Implementar `src/mapper.ts`: conversão da resposta da Caixa para `Draw`, incluindo parse de data `dd/MM/yyyy`
   - `prizeValue` sai da **faixa 1 de `listaRateioPremio`**, não de `valorTotalPremioFaixaUm` (que é incoerente — veja o CLAUDE.md)
   - `drawDaysOfWeek` sai de `getDrawDaysOfWeek(code)`, do calendário — não da API
@@ -166,7 +166,8 @@ dados consultados são de origem pública.
 
 **Qualidade**
 - [x] Capturar fixtures de resposta real das 11 modalidades para os testes
-- [ ] Cobrir `client.ts` e `mapper.ts` com testes (erros de rede, HTTP não-2xx, JSON malformado, campos ausentes)
+- [x] Cobrir `client.ts` com testes (rede, timeout, HTTP não-2xx, erro disfarçado, JSON malformado, retry)
+- [ ] Cobrir `mapper.ts` com testes (campos ausentes, parse de data, limpeza do lixo da Caixa)
 - [ ] Atingir e manter 100% de cobertura de linhas e branches
 - [ ] Configurar CI (GitHub Actions) rodando typecheck + testes + cobertura
 
