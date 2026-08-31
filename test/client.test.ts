@@ -151,7 +151,17 @@ test('abort por tempo esgotado vira TimeoutError', async () => {
 test('o timeout é real: o signal enviado aborta sozinho', async () => {
   const impl: FetchLike = (_url, init) =>
     new Promise((_resolve, reject) => {
-      init.signal.addEventListener('abort', () => reject(init.signal.reason));
+      // O timer de `AbortSignal.timeout()` é unref: sozinho, ele não segura o
+      // event loop. Um `fetch` de verdade segura, porque tem um socket aberto
+      // esperando resposta — este timer faz o mesmo papel. Sem ele o processo
+      // esvazia o loop antes do abort e o Node 22 derruba a suíte inteira com
+      // "Promise resolution is still pending but the event loop has already
+      // resolved".
+      const seguraOLoop = setTimeout(() => reject(new Error('o abort nunca veio')), 5000);
+      init.signal.addEventListener('abort', () => {
+        clearTimeout(seguraOLoop);
+        reject(init.signal.reason);
+      });
     });
 
   await assert.rejects(

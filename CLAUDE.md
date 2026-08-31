@@ -224,10 +224,37 @@ Antes de considerar uma implementação pronta: `npm run typecheck`,
 `npm test` com `fail 0`, e `npm run test:coverage:strict` — que é o gate do CI
 e falha abaixo de 100% de linhas, branches e funções.
 
-`test/source-files.test.ts` carrega todo arquivo de `src/`, e isso não é
-detalhe: a cobertura do Node só mede arquivo **carregado**, então um módulo que
-nenhum teste importa ficaria invisível e o gate passaria com 100% falso.
-`--test-coverage-include` não resolve — ele filtra o que já foi carregado.
+### Duas armadilhas do gate de cobertura
+
+Ambas custaram um CI vermelho; não desfaça nenhuma das duas achando que é
+redundância.
+
+1. **`test/source-files.test.ts` carrega todo arquivo de `src/`.** A cobertura
+   do Node só mede arquivo **carregado**, então um módulo que nenhum teste
+   importa ficaria invisível e o gate passaria com 100% falso.
+2. **O gate usa `--test-coverage-include="src/**/*.ts`".** Sem isso, o Node 22
+   inclui os próprios arquivos de teste na conta (o Node 24 os exclui por
+   padrão) e o limite de 100% nunca é atingido — o `src/` inteiro pode estar
+   coberto e o CI reprovar mesmo assim. O `include` **filtra** o que foi
+   carregado; quem garante que tudo de `src/` foi carregado é o item 1. Os dois
+   juntos é que fazem o gate medir a coisa certa.
+
+### Teste que espera timeout precisa segurar o event loop
+
+O timer de `AbortSignal.timeout()` é *unref*: sozinho, ele não impede o Node de
+encerrar. Um `fetch` real segura o loop porque tem socket aberto; um dublê que
+só devolve uma `Promise` pendente não segura nada. No Node 24 o runner disfarça
+o problema, no Node 22 a suíte inteira morre com "Promise resolution is still
+pending but the event loop has already resolved" — e os testes seguintes caem
+como `cancelledByParent`, o que faz o log apontar para o lugar errado.
+
+Dublê de `fetch` que espera abort precisa de um `setTimeout` segurando o loop,
+limpo no `abort`.
+
+### Rode a suíte nas duas versões antes de mexer em CI
+
+`nvm exec 22` e `nvm exec 24`. As diferenças acima não aparecem em nenhuma
+versão isolada — só na comparação.
 
 ## Publicação no npm
 
