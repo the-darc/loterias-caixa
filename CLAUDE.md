@@ -221,7 +221,13 @@ npm run build         # emite dist/
 ```
 
 Antes de considerar uma implementação pronta: `npm run typecheck`,
-`npm test` com `fail 0`, e cobertura sem queda.
+`npm test` com `fail 0`, e `npm run test:coverage:strict` — que é o gate do CI
+e falha abaixo de 100% de linhas, branches e funções.
+
+`test/source-files.test.ts` carrega todo arquivo de `src/`, e isso não é
+detalhe: a cobertura do Node só mede arquivo **carregado**, então um módulo que
+nenhum teste importa ficaria invisível e o gate passaria com 100% falso.
+`--test-coverage-include` não resolve — ele filtra o que já foi carregado.
 
 ## Publicação no npm
 

@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Permite disparar à mão para conferir a lib depois de uma mudança da Caixa.
+  workflow_dispatch:
+
+# Um push novo na mesma branch cancela a execução anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Uma versão quebrada não esconde o resultado das outras.
+      fail-fast: false
+      matrix:
+        # 22.x é a linha mínima suportada; 24.x é a LTS atual. A suíte roda os
+        # `.ts` direto, sem build, o que exige type stripping ligado por padrão
+        # (Node 22.18+) — por isso `22.x` e não a mínima do `engines`, 22.12.
+        node: ['22.x', '24.x']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `npm ci` em vez de `install`: respeita o lockfile e falha se ele estiver
+      # dessincronizado do package.json.
+      - run: npm ci
+
+      - name: Typecheck (src e testes)
+        run: npm run typecheck
+
+      - name: Testes com gate de 100% de cobertura
+        run: npm run test:coverage:strict
+
+      - name: Build
+        run: npm run build
+
+  # A lib promete `engines.node >= 22.12` e que consumidor CommonJS consegue
+  # dar `require()` no ESM publicado. Este job testa exatamente essa promessa,
+  # na versão mínima declarada — o job de cima não cobre isso porque roda o
+  # fonte, não o `dist/`.
+  minimum-engine:
+    name: Consumo do dist no Node 22.12 (mínimo declarado)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: require() de CJS no pacote publicado
+        run: |
+          node -e "
+            const lib = require('./dist/index.js');
+            if (typeof lib.getLatestDraw !== 'function') {
+              throw new Error('getLatestDraw nao veio no require()');
+            }
+            console.log('ok -', Object.keys(lib).length, 'exports');
+          "
+
+      - name: import() de ESM no pacote publicado
+        run: |
+          node --input-type=module -e "
+            const lib = await import('./dist/index.js');
+            if (lib.getSupportedLotteries().length !== 11) {
+              throw new Error('catalogo incompleto');
+            }
+            console.log('ok - 11 modalidades');
+          "
