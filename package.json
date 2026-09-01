@@ -1,15 +1,24 @@
 {
   "name": "loterias-caixa",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Biblioteca Node.js para consultar os resultados das loterias da Caixa Econômica Federal. Zero dependências de runtime.",
   "license": "MIT",
   "author": "Daniel Campos",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/the-darc/loterias-caixa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/the-darc/loterias-caixa/issues"
+  },
+  "homepage": "https://github.com/the-darc/loterias-caixa#readme",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",
   "files": [
