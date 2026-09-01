@@ -20,10 +20,16 @@
  *
  * ## Sobre o horário
  *
- * `time` é **documentação**, não sai na superfície pública da lib: um horário
- * de parede sem timezone é fonte garantida de bug em quem roda em UTC (o
- * padrão das Cloud Functions). Fica aqui registrado, em horário de Brasília,
- * porque é o que permite conferir a tabela contra a fonte oficial.
+ * Os horários são de **Brasília** (`DRAW_TIME_ZONE`), e é assim que saem na
+ * superfície pública: `Draw.nextDrawTime` traz o horário do próximo sorteio,
+ * sempre acompanhado do fuso na documentação. Horário de parede sem fuso
+ * declarado é bug garantido em quem roda em UTC — o padrão das Cloud
+ * Functions —, então o fuso nunca fica implícito.
+ *
+ * O horário varia por dia da semana (21h de segunda a sexta, 11h aos
+ * domingos), e por isso a lib devolve o horário **do próximo sorteio**, não um
+ * horário fixo por modalidade: para a maioria das modalidades esse valor único
+ * simplesmente não existe.
  */
 import { UnsupportedLotteryError } from './errors.ts';
 import type { LotteryCode, Weekday } from './types/public.ts';
@@ -34,6 +40,12 @@ export interface ScheduledDraw {
   /** `HH:mm` no horário de Brasília. Só documentação — veja o doc do módulo. */
   time: string;
 }
+
+/**
+ * Fuso a que todos os horários deste calendário se referem. Exportado para
+ * que quem consome consiga converter corretamente em vez de adivinhar.
+ */
+export const DRAW_TIME_ZONE = 'America/Sao_Paulo';
 
 /** Os dias na ordem de `Date.prototype.getDay()` — domingo é 0. */
 export const WEEKDAYS: readonly Weekday[] = Object.freeze([
@@ -122,4 +134,21 @@ export function addDrawDays(code: LotteryCode, from: Date, drawsAhead: number): 
   }
 
   return date;
+}
+
+/**
+ * Horário do sorteio da modalidade na data informada, em `HH:mm` no fuso
+ * `DRAW_TIME_ZONE`.
+ *
+ * Devolve `undefined` quando a data não cai em dia de sorteio da modalidade —
+ * caso real da Loteca, cujo `dataProximoConcurso` é a data da rodada de jogos
+ * (sábado) enquanto o calendário registra a apuração (segunda). Sem saber o
+ * horário, a lib não inventa um.
+ *
+ * O dia da semana é lido em UTC, coerente com as datas que a lib devolve
+ * (meia-noite UTC do dia do sorteio).
+ */
+export function getDrawTime(code: LotteryCode, date: Date): string | undefined {
+  const weekday = WEEKDAYS[date.getUTCDay()];
+  return getDrawSchedule(code).find((draw) => draw.weekday === weekday)?.time;
 }

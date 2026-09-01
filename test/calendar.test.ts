@@ -8,9 +8,11 @@ import assert from 'node:assert/strict';
 
 import {
   DRAW_CALENDAR,
+  DRAW_TIME_ZONE,
   WEEKDAY_INDEX,
   getDrawDaysOfWeek,
   getDrawSchedule,
+  getDrawTime,
 } from '../src/calendar.ts';
 import { UnsupportedLotteryError } from '../src/errors.ts';
 import { getSupportedLotteries } from '../src/lotteries.ts';
@@ -109,4 +111,43 @@ test('o calendário é o de hoje: concurso de 2022 não bate com ele', () => {
   const antigo = readFixture('contest/megasena-2500.json') as CaixaDrawResponse;
   assert.equal(weekdayOf(antigo.dataApuracao), 'WED');
   assert.ok(!getDrawDaysOfWeek('megasena').includes('WED'));
+});
+
+test('o fuso dos horários é declarado, não implícito', () => {
+  assert.equal(DRAW_TIME_ZONE, 'America/Sao_Paulo');
+});
+
+test('getDrawTime responde conforme o dia da semana da data', () => {
+  // 30/08/2026 é domingo; 01/09/2026 é terça.
+  const domingo = new Date('2026-08-30T00:00:00.000Z');
+  const terca = new Date('2026-09-01T00:00:00.000Z');
+
+  assert.equal(getDrawTime('megasena', domingo), '11:00');
+  assert.equal(getDrawTime('megasena', terca), '21:00');
+});
+
+test('getDrawTime devolve undefined quando a data não é dia de sorteio', () => {
+  // Sábado: a Mega não sorteia mais aos sábados desde julho de 2026.
+  const sabado = new Date('2026-08-29T00:00:00.000Z');
+  assert.equal(getDrawTime('megasena', sabado), undefined);
+
+  // A Loteca apura na segunda; sábado é a data da rodada, não da apuração.
+  assert.equal(getDrawTime('loteca', sabado), undefined);
+  assert.equal(getDrawTime('loteca', new Date('2026-08-31T00:00:00.000Z')), '17:00');
+});
+
+test('getDrawTime cobre as modalidades com horário próprio', () => {
+  const domingo = new Date('2026-08-30T00:00:00.000Z');
+  const quarta = new Date('2026-09-02T00:00:00.000Z');
+
+  assert.equal(getDrawTime('federal', quarta), '20:00');
+  assert.equal(getDrawTime('federal', domingo), '11:00');
+  assert.equal(getDrawTime('maismilionaria', quarta), '21:00');
+});
+
+test('getDrawTime recusa código não suportado', () => {
+  assert.throws(
+    () => getDrawTime('raspadinha' as LotteryCode, new Date()),
+    UnsupportedLotteryError,
+  );
 });

@@ -16,7 +16,7 @@
  * **meia-noite UTC** do dia informado — assim o dia não escorrega conforme o
  * fuso de quem lê. Quem precisa de horário local converte.
  */
-import { addDrawDays, getDrawDaysOfWeek } from './calendar.ts';
+import { addDrawDays, getDrawDaysOfWeek, getDrawTime } from './calendar.ts';
 import { InvalidResponseError } from './errors.ts';
 import { getLotteryName } from './lotteries.ts';
 import type { Draw, LotteryCode } from './types/public.ts';
@@ -49,6 +49,7 @@ export function mapDraw(
     readString(source, 'dataProximoConcurso'),
     'dataProximoConcurso',
   );
+  const nextDrawTime = nextDrawDate ? getDrawTime(code, nextDrawDate) : undefined;
   const specialAccumulated = readNumber(source, 'valorAcumuladoConcursoEspecial');
   const secondDrawNumbers = readStringList(source, 'listaDezenasSegundoSorteio');
   const bonusNumbers = readStringList(source, 'trevosSorteados');
@@ -65,6 +66,7 @@ export function mapDraw(
     prizeValue: readFirstTierPrize(source),
     drawDate,
     ...(nextDrawDate ? { nextDrawDate } : {}),
+    ...(nextDrawTime ? { nextDrawTime } : {}),
     nextContestAccumulatedValue: readNumber(source, 'valorAcumuladoProximoConcurso'),
     nextDrawPrizeEstimate: readNumber(source, 'valorEstimadoProximoConcurso'),
     ...(specialAccumulated > 0 ? { nextSpecialDrawAccumulatedValue: specialAccumulated } : {}),

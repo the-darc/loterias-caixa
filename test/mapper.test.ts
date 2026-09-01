@@ -31,6 +31,7 @@ test('mapeia a fixture da Mega-Sena inteira', () => {
     prizeValue: 0,
     drawDate: utc('2026-08-27'),
     nextDrawDate: utc('2026-08-30'),
+    nextDrawTime: '11:00',
     nextContestAccumulatedValue: 23351895.74,
     nextDrawPrizeEstimate: 30000000,
     nextSpecialDrawAccumulatedValue: 59155478.85,
@@ -263,4 +264,28 @@ test('os campos extras também são validados', () => {
       `aceitou ${JSON.stringify(mudanca)}`,
     );
   }
+});
+
+test('nextDrawTime acompanha o dia da semana do próximo concurso', () => {
+  // O próximo concurso da Mega cai num domingo, quando o sorteio é de manhã.
+  const draw = mapDraw('megasena', MEGASENA);
+  assert.deepEqual(draw.nextDrawDate, utc('2026-08-30'));
+  assert.equal(draw.nextDrawTime, '11:00');
+
+  // Na Dupla Sena o próximo cai numa segunda, à noite.
+  const duplasena = mapDraw('duplasena', readFixture('latest/duplasena.json'));
+  assert.deepEqual(duplasena.nextDrawDate, utc('2026-08-31'));
+  assert.equal(duplasena.nextDrawTime, '21:00');
+});
+
+test('sem próximo concurso não há horário — o caso da Federal', () => {
+  const draw = mapDraw('federal', readFixture('latest/federal.json'));
+  assert.ok(!('nextDrawDate' in draw));
+  assert.ok(!('nextDrawTime' in draw), 'inventou horário sem data');
+});
+
+test('data fora do calendário não vira horário chutado — o caso da Loteca', () => {
+  const draw = mapDraw('loteca', readFixture('latest/loteca.json'));
+  assert.deepEqual(draw.nextDrawDate, utc('2026-08-29'));
+  assert.ok(!('nextDrawTime' in draw), 'chutou horário para data fora do calendário');
 });

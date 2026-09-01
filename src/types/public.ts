@@ -34,6 +34,17 @@ export interface Draw {
   prizeValue: number;
   drawDate: Date;
   nextDrawDate?: Date;
+  /**
+   * Horário do próximo sorteio em `HH:mm`, no fuso de Brasília
+   * (`America/Sao_Paulo`). Não vem da API: sai do calendário estático, e o
+   * valor depende do dia da semana em que o próximo concurso cai — 21h de
+   * segunda a sexta, 11h aos domingos, com exceções por modalidade.
+   *
+   * Ausente quando não há próximo concurso agendado, ou quando a data dele
+   * não cai em dia de sorteio conhecido (o caso da Loteca, cujo calendário é
+   * o da apuração).
+   */
+  nextDrawTime?: string;
   nextContestAccumulatedValue: number;
   nextDrawPrizeEstimate: number;
   nextSpecialDrawAccumulatedValue?: number;

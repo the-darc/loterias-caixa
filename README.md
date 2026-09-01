@@ -37,6 +37,7 @@ draw.drawDate;              // Date (meia-noite UTC do dia do sorteio)
 draw.drawnNumbers;          // ['11', '14', '30', '38', '49', '55']
 draw.drawDaysOfWeek;        // ['SUN', 'TUE', 'THU']
 draw.nextDrawPrizeEstimate; // 30000000
+draw.nextDrawTime;          // '11:00' — horário de Brasília (DRAW_TIME_ZONE)
 draw.nextSpecialDrawDate;   // Date — projeção do próximo concurso especial
 
 // Modalidades com resultado além das dezenas
@@ -136,10 +137,19 @@ dentro, é fácil de corrigir por qualquer pessoa** — se você notou uma agend
 errada, abra um PR mudando só esse arquivo. Os testes conferem a tabela contra
 o dia da semana real das respostas guardadas em `test/fixtures/`.
 
-O horário de cada sorteio está registrado lá, mas **não sai na resposta da
-lib**: um horário de parede sem timezone é fonte garantida de bug em quem roda
-em UTC. Ele fica no arquivo como documentação e para permitir conferência
-contra a fonte oficial.
+O calendário também é a origem de `nextDrawTime`, o horário do próximo
+sorteio. Ele é **o horário do próximo concurso**, não um horário fixo da
+modalidade, porque para a maioria delas esse valor único não existe: a
+Mega-Sena sorteia às 21h de terça e quinta e às 11h aos domingos.
+
+Todo horário é de Brasília, e o fuso é exportado como `DRAW_TIME_ZONE`
+(`'America/Sao_Paulo'`) em vez de ficar implícito — horário de parede sem fuso
+declarado é bug garantido em quem roda em UTC.
+
+`nextDrawTime` fica **ausente** quando não há próximo concurso agendado (o
+caso da Federal) ou quando a data dele não cai em dia de sorteio conhecido: a
+Loteca apura às segundas, mas a API devolve a data da rodada de jogos, que cai
+no sábado. Sem saber o horário, a lib não chuta um.
 
 ## Desenvolvimento
 
