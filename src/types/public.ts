@@ -26,6 +26,22 @@ export interface Lottery {
  * reais — a conversão para tipos de persistência (ex: Firestore Timestamp) é
  * responsabilidade de quem consome a lib.
  */
+/**
+ * O maior prêmio que o concurso **de fato pagou**.
+ *
+ * Não é a faixa principal: quando ela acumula, o maior prêmio distribuído é o
+ * da faixa seguinte que teve ganhador. Na Mega-Sena acumulada, por exemplo, é
+ * a quina — e é esse o número que interessa a quem quer saber se valeu a pena.
+ */
+export interface TopPrize {
+  /** Descrição da faixa, como a Caixa escreve: `"5 acertos"`. */
+  tier: string;
+  /** Quantas apostas ganharam essa faixa. */
+  winners: number;
+  /** Quanto **cada** aposta ganhadora recebeu, em reais. */
+  valuePerWinner: number;
+}
+
 export interface Draw {
   lotteryCode: LotteryCode;
   lotteryName: string;
@@ -60,6 +76,14 @@ export interface Draw {
    */
   drawDaysOfWeek: Weekday[];
   drawnNumbers: string[];
+  /**
+   * Maior prêmio efetivamente pago no concurso.
+   *
+   * **Ausente quando ninguém ganhou nada** — acontece em concurso totalmente
+   * acumulado. Não confunda com `prizeValue`, que é a faixa principal e vem
+   * `0` justamente nesse caso.
+   */
+  topPrize?: TopPrize;
   /**
    * Dezenas do segundo sorteio. Só a Dupla Sena tem dois sorteios por
    * concurso; nas demais modalidades o campo não vem.

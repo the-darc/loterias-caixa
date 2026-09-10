@@ -19,7 +19,7 @@
 import { addDrawDays, getDrawDaysOfWeek, getDrawTime } from './calendar.ts';
 import { InvalidResponseError } from './errors.ts';
 import { getLotteryName } from './lotteries.ts';
-import type { Draw, LotteryCode } from './types/public.ts';
+import type { Draw, LotteryCode, TopPrize } from './types/public.ts';
 
 /**
  * Teto de sanidade para a projeção do concurso especial. O alvo de final 0/5
@@ -50,6 +50,7 @@ export function mapDraw(
     'dataProximoConcurso',
   );
   const nextDrawTime = nextDrawDate ? getDrawTime(code, nextDrawDate) : undefined;
+  const topPrize = readTopPrize(source);
   const specialAccumulated = readNumber(source, 'valorAcumuladoConcursoEspecial');
   const secondDrawNumbers = readStringList(source, 'listaDezenasSegundoSorteio');
   const bonusNumbers = readStringList(source, 'trevosSorteados');
@@ -73,6 +74,7 @@ export function mapDraw(
     ...(specialDrawDate ? { nextSpecialDrawDate: specialDrawDate } : {}),
     drawDaysOfWeek: getDrawDaysOfWeek(code),
     drawnNumbers: readStringList(source, 'listaDezenas'),
+    ...(topPrize ? { topPrize } : {}),
     ...(secondDrawNumbers.length > 0 ? { secondDrawNumbers } : {}),
     ...(bonusNumbers.length > 0 ? { bonusNumbers } : {}),
     ...(bonusName ? { bonusName } : {}),
@@ -111,15 +113,52 @@ function projectSpecialDrawDate(
 }
 
 /**
+ * Maior prêmio que o concurso de fato pagou.
+ *
+ * Percorre todas as faixas e escolhe a de maior valor **entre as que tiveram
+ * ganhador**. Quando a faixa principal acumula, a resposta é a faixa seguinte
+ * premiada — na Mega acumulada, a quina.
+ *
+ * Devolve `undefined` quando nenhuma faixa teve ganhador: aí não há prêmio
+ * pago, e inventar um seria mentir.
+ */
+function readTopPrize(source: Record<string, unknown>): TopPrize | undefined {
+  let melhor: TopPrize | undefined;
+
+  for (const tier of readPrizeTiers(source)) {
+    if (typeof tier !== 'object' || tier === null) {
+      continue;
+    }
+    const faixa = tier as Record<string, unknown>;
+    const winners = numeroOuNada(faixa['numeroDeGanhadores']);
+    const valuePerWinner = numeroOuNada(faixa['valorPremio']);
+
+    // Faixa incompleta é ignorada, não recusada: `topPrize` é enriquecimento,
+    // e um campo estranho aqui não pode impedir o concurso inteiro de ser
+    // mapeado — `prizeValue` nem depende dele.
+    if (winners === undefined || winners <= 0 || valuePerWinner === undefined) {
+      continue;
+    }
+
+    if (!melhor || valuePerWinner > melhor.valuePerWinner) {
+      melhor = {
+        tier: typeof faixa['descricaoFaixa'] === 'string' ? faixa['descricaoFaixa'] : '',
+        winners,
+        valuePerWinner,
+      };
+    }
+  }
+
+  return melhor;
+}
+
+/**
  * Prêmio da faixa principal. Sai da faixa 1 de `listaRateioPremio`, e **não**
  * de `valorTotalPremioFaixaUm`, que é incoerente nos dois sentidos (veja o
  * CLAUDE.md).
  */
 function readFirstTierPrize(source: Record<string, unknown>): number {
-  const tiers = source['listaRateioPremio'];
-  if (!Array.isArray(tiers)) {
-    throw invalid('listaRateioPremio', tiers, 'esperava uma lista de faixas');
-  }
+  const tiers = readPrizeTiers(source);
 
   const firstTier = tiers.find(
     (tier): tier is Record<string, unknown> =>
@@ -231,6 +270,29 @@ function parseDate(value: string, field: string): Date {
 /** Como `parseDate`, mas string vazia significa "não há" (o caso da Federal). */
 function parseOptionalDate(value: string, field: string): Date | undefined {
   return value === '' ? undefined : parseDate(value, field);
+}
+
+/**
+ * A lista de faixas de premiação, validada.
+ *
+ * Fica num lugar só porque dois cálculos a consomem — o prêmio da faixa
+ * principal e o maior prêmio pago. Duplicar a validação criaria um `throw`
+ * inalcançável no segundo a rodar.
+ *
+ * @param source Documento bruto da Caixa.
+ * @returns As faixas, sem garantia sobre o conteúdo de cada uma.
+ */
+function readPrizeTiers(source: Record<string, unknown>): unknown[] {
+  const tiers = source['listaRateioPremio'];
+  if (!Array.isArray(tiers)) {
+    throw invalid('listaRateioPremio', tiers, 'esperava uma lista de faixas');
+  }
+  return tiers;
+}
+
+/** Número utilizável, ou `undefined` — sem lançar. */
+function numeroOuNada(valor: unknown): number | undefined {
+  return typeof valor === 'number' && Number.isFinite(valor) ? valor : undefined;
 }
 
 function invalid(field: string, value: unknown, reason: string): InvalidResponseError {

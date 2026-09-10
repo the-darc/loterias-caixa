@@ -39,6 +39,7 @@ draw.drawDaysOfWeek;        // ['SUN', 'TUE', 'THU']
 draw.nextDrawPrizeEstimate; // 30000000
 draw.nextDrawTime;          // '11:00' — horário de Brasília (DRAW_TIME_ZONE)
 draw.nextSpecialDrawDate;   // Date — projeção do próximo concurso especial
+draw.topPrize;              // { tier, winners, valuePerWinner } — o maior prêmio pago
 
 // Modalidades com resultado além das dezenas
 (await getLatestDraw('duplasena')).secondDrawNumbers;   // ['07', '11', ...] 2º sorteio
@@ -81,6 +82,12 @@ Quatro modalidades têm resultado além das dezenas, e a lib devolve todos:
 trevos da +Milionária) e `bonusName` (o time do coração da Timemania e o mês
 da sorte do Dia de Sorte, que a Caixa manda no mesmo campo). Os campos só
 existem nas modalidades a que se aplicam — nas outras não vêm.
+
+`topPrize` é o maior prêmio que o concurso **de fato pagou**, e não a faixa
+principal: quando ela acumula, o maior prêmio distribuído é o da faixa
+seguinte que teve ganhador — na Mega acumulada, a quina. Fica ausente quando
+nenhuma faixa teve ganhador. Não confunda com `prizeValue`, que é a faixa
+principal e vem `0` justamente nesse caso.
 
 **Só `getLatestDraw` projeta `nextSpecialDrawDate`.** A projeção usa o
 calendário de hoje, que não vale para concurso antigo — a Mega sorteava às

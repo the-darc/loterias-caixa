@@ -4,6 +4,7 @@ export type {
   Lottery,
   LotteryCode,
   LotteryFailure,
+  TopPrize,
   Weekday,
 } from './types/public.ts';
 export type { FetchLike, RequestOptions } from './client.ts';

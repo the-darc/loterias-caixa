@@ -38,6 +38,7 @@ test('mapeia a fixture da Mega-Sena inteira', () => {
     nextSpecialDrawDate: utc('2026-09-08'),
     drawDaysOfWeek: ['SUN', 'TUE', 'THU'],
     drawnNumbers: ['11', '14', '30', '38', '49', '55'],
+    topPrize: { tier: '5 acertos', winners: 26, valuePerWinner: 55536.51 },
   } satisfies Draw);
 });
 
@@ -288,4 +289,86 @@ test('data fora do calendário não vira horário chutado — o caso da Loteca',
   const draw = mapDraw('loteca', readFixture('latest/loteca.json'));
   assert.deepEqual(draw.nextDrawDate, utc('2026-08-29'));
   assert.ok(!('nextDrawTime' in draw), 'chutou horário para data fora do calendário');
+});
+
+test('topPrize é o maior prêmio efetivamente pago, não a faixa principal', () => {
+  // A Mega acumulou: a faixa 1 pagou zero, e o maior prêmio distribuído foi a
+  // quina. É esse número que interessa a quem quer saber se valeu a pena.
+  const draw = mapDraw('megasena', MEGASENA);
+
+  assert.equal(draw.isAccumulated, true);
+  assert.equal(draw.prizeValue, 0);
+  assert.deepEqual(draw.topPrize, {
+    tier: '5 acertos',
+    winners: 26,
+    valuePerWinner: 55536.51,
+  });
+});
+
+test('quando a faixa principal é paga, ela mesma é o maior prêmio', () => {
+  const federal = mapDraw('federal', readFixture('latest/federal.json'));
+
+  assert.equal(federal.topPrize?.winners, 1);
+  assert.equal(federal.topPrize?.valuePerWinner, 500000);
+});
+
+test('concurso sem nenhum ganhador não inventa prêmio', () => {
+  const semGanhador = megasenaCom({
+    listaRateioPremio: [
+      { descricaoFaixa: '6 acertos', faixa: 1, numeroDeGanhadores: 0, valorPremio: 0 },
+      { descricaoFaixa: '5 acertos', faixa: 2, numeroDeGanhadores: 0, valorPremio: 0 },
+    ],
+  });
+
+  assert.ok(!('topPrize' in mapDraw('megasena', semGanhador)));
+});
+
+test('escolhe pelo valor, não pela ordem das faixas', () => {
+  // A ordem da Caixa é decrescente por faixa, mas nada garante que o valor
+  // acompanhe — depender da posição seria frágil.
+  const foraDeOrdem = megasenaCom({
+    listaRateioPremio: [
+      { descricaoFaixa: '6 acertos', faixa: 1, numeroDeGanhadores: 3, valorPremio: 100 },
+      { descricaoFaixa: '5 acertos', faixa: 2, numeroDeGanhadores: 1, valorPremio: 900 },
+    ],
+  });
+
+  assert.equal(mapDraw('megasena', foraDeOrdem).topPrize?.valuePerWinner, 900);
+});
+
+test('item não-objeto no rateio é ignorado ao procurar o maior prêmio', () => {
+  const comLixo = megasenaCom({
+    listaRateioPremio: [
+      null,
+      'lixo',
+      { descricaoFaixa: '6 acertos', faixa: 1, numeroDeGanhadores: 2, valorPremio: 50 },
+    ],
+  });
+
+  assert.equal(mapDraw('megasena', comLixo).topPrize?.winners, 2);
+});
+
+test('rateio inválido é recusado ao procurar o maior prêmio', () => {
+  assert.throws(
+    () => mapDraw('megasena', megasenaCom({ listaRateioPremio: 'nao-e-lista' })),
+    InvalidResponseError,
+  );
+});
+
+test('faixa sem os campos de ganhador é ignorada, sem derrubar o mapeamento', () => {
+  // topPrize é enriquecimento: campo estranho numa faixa não pode impedir o
+  // concurso inteiro de ser lido.
+  const incompleto = megasenaCom({
+    listaRateioPremio: [
+      { descricaoFaixa: '6 acertos', faixa: 1, valorPremio: 0 },
+      { descricaoFaixa: '5 acertos', faixa: 2, numeroDeGanhadores: 'muitos', valorPremio: 10 },
+      { descricaoFaixa: '4 acertos', faixa: 3, numeroDeGanhadores: 5, valorPremio: 'mil' },
+      { faixa: 4, numeroDeGanhadores: 7, valorPremio: 30 },
+    ],
+  });
+
+  const draw = mapDraw('megasena', incompleto);
+
+  // Só a última faixa é utilizável; a descrição ausente vira string vazia.
+  assert.deepEqual(draw.topPrize, { tier: '', winners: 7, valuePerWinner: 30 });
 });
