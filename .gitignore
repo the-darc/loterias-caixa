@@ -3,3 +3,8 @@ dist/
 *.log
 .DS_Store
 .env
+
+# Saída do `npm pack` e do `prepublishOnly`. Já causou estrago: um tarball
+# local virou dependência no package-lock.json e o CI do backend quebrou com
+# ENOENT, porque o caminho não existe no runner.
+*.tgz
