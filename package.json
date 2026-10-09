@@ -1,7 +1,7 @@
 {
   "name": "loterias-caixa",
-  "version": "0.2.0",
-  "description": "Biblioteca Node.js para consultar os resultados das loterias da Caixa Econômica Federal. Zero dependências de runtime.",
+  "version": "0.3.0",
+  "description": "Biblioteca Node.js para consultar os resultados das loterias da Caixa Econ\u00f4mica Federal. Zero depend\u00eancias de runtime.",
   "license": "MIT",
   "author": "Daniel Campos",
   "repository": {

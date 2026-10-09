@@ -39,6 +39,13 @@ test('mapeia a fixture da Mega-Sena inteira', () => {
     drawDaysOfWeek: ['SUN', 'TUE', 'THU'],
     drawnNumbers: ['11', '14', '30', '38', '49', '55'],
     topPrize: { tier: '5 acertos', winners: 26, valuePerWinner: 55536.51 },
+    // Todas as faixas, na ordem da Caixa e **incluindo a que acumulou**:
+    // é o que deixa a tela dizer "1º prêmio: acumulou".
+    prizeTiers: [
+      { tier: '6 acertos', winners: 0, valuePerWinner: 0 },
+      { tier: '5 acertos', winners: 26, valuePerWinner: 55536.51 },
+      { tier: '4 acertos', winners: 1682, valuePerWinner: 1415.06 },
+    ],
   } satisfies Draw);
 });
 
@@ -371,4 +378,68 @@ test('faixa sem os campos de ganhador é ignorada, sem derrubar o mapeamento', (
 
   // Só a última faixa é utilizável; a descrição ausente vira string vazia.
   assert.deepEqual(draw.topPrize, { tier: '', winners: 7, valuePerWinner: 30 });
+});
+
+test('prizeTiers traz todas as faixas, inclusive a que não teve ganhador', () => {
+  // É o que distingue "o 1º prêmio acumulou" de "não existe 1º prêmio".
+  const draw = mapDraw('megasena', readFixture('latest/megasena.json'));
+
+  assert.equal(draw.prizeTiers?.length, 3);
+  assert.deepEqual(draw.prizeTiers?.[0], {
+    tier: '6 acertos',
+    winners: 0,
+    valuePerWinner: 0,
+  });
+});
+
+test('prizeTiers preserva a ordem da Caixa: a primeira é o prêmio principal', () => {
+  const draw = mapDraw('megasena', readFixture('latest/megasena.json'));
+
+  assert.deepEqual(
+    draw.prizeTiers?.map((faixa) => faixa.tier),
+    ['6 acertos', '5 acertos', '4 acertos'],
+  );
+});
+
+test('faixa com número ilegível é pulada, sem derrubar o concurso', () => {
+  const payload = {
+    ...readFixture('latest/megasena.json'),
+    listaRateioPremio: [
+      { descricaoFaixa: '6 acertos', faixa: 1, numeroDeGanhadores: 0, valorPremio: 0 },
+      { descricaoFaixa: 'estranha', faixa: 2, numeroDeGanhadores: 'muitos', valorPremio: 10 },
+      { descricaoFaixa: '4 acertos', faixa: 3, numeroDeGanhadores: 2, valorPremio: 50 },
+    ],
+  };
+
+  const draw = mapDraw('megasena', payload);
+
+  assert.deepEqual(
+    draw.prizeTiers?.map((faixa) => faixa.tier),
+    ['6 acertos', '4 acertos'],
+  );
+});
+
+test('sem faixa utilizável, prizeTiers fica ausente', () => {
+  // A faixa 1 tem valor, então `prizeValue` é lido e o concurso é mapeado —
+  // mas sem o número de ganhadores ela não vira faixa de premiação. Sem
+  // nenhuma utilizável, o campo some em vez de virar lista vazia.
+  const payload = {
+    ...readFixture('latest/megasena.json'),
+    listaRateioPremio: [{ faixa: 1, descricaoFaixa: '6 acertos', valorPremio: 100 }],
+  };
+
+  const draw = mapDraw('megasena', payload);
+
+  assert.equal(draw.prizeValue, 100);
+  assert.equal('prizeTiers' in draw, false);
+  assert.equal('topPrize' in draw, false);
+});
+
+test('faixa sem descrição não vira "undefined" na tela', () => {
+  const payload = {
+    ...readFixture('latest/megasena.json'),
+    listaRateioPremio: [{ faixa: 1, numeroDeGanhadores: 1, valorPremio: 7 }],
+  };
+
+  assert.equal(mapDraw('megasena', payload).prizeTiers?.[0]?.tier, '');
 });

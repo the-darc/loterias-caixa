@@ -4,6 +4,7 @@ export type {
   Lottery,
   LotteryCode,
   LotteryFailure,
+  PrizeTier,
   TopPrize,
   Weekday,
 } from './types/public.ts';

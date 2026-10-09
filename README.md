@@ -40,6 +40,7 @@ draw.nextDrawPrizeEstimate; // 30000000
 draw.nextDrawTime;          // '11:00' — horário de Brasília (DRAW_TIME_ZONE)
 draw.nextSpecialDrawDate;   // Date — projeção do próximo concurso especial
 draw.topPrize;              // { tier, winners, valuePerWinner } — o maior prêmio pago
+draw.prizeTiers;            // todas as faixas, na ordem da Caixa, com as que acumularam
 
 // Modalidades com resultado além das dezenas
 (await getLatestDraw('duplasena')).secondDrawNumbers;   // ['07', '11', ...] 2º sorteio
@@ -82,6 +83,12 @@ Quatro modalidades têm resultado além das dezenas, e a lib devolve todos:
 trevos da +Milionária) e `bonusName` (o time do coração da Timemania e o mês
 da sorte do Dia de Sorte, que a Caixa manda no mesmo campo). Os campos só
 existem nas modalidades a que se aplicam — nas outras não vêm.
+
+`prizeTiers` traz **todas** as faixas de premiação, na ordem em que a Caixa as
+devolve — a primeira é o prêmio principal. Faixas **sem ganhador entram**, com
+`winners: 0`, e é isso que permite dizer "o 1º prêmio acumulou" em vez de
+omitir a linha: omitir deixaria o leitor sem saber se a faixa não existe ou se
+ninguém ganhou.
 
 `topPrize` é o maior prêmio que o concurso **de fato pagou**, e não a faixa
 principal: quando ela acumula, o maior prêmio distribuído é o da faixa

@@ -33,14 +33,20 @@ export interface Lottery {
  * da faixa seguinte que teve ganhador. Na Mega-Sena acumulada, por exemplo, é
  * a quina — e é esse o número que interessa a quem quer saber se valeu a pena.
  */
-export interface TopPrize {
+export interface PrizeTier {
   /** Descrição da faixa, como a Caixa escreve: `"5 acertos"`. */
   tier: string;
-  /** Quantas apostas ganharam essa faixa. */
+  /** Quantas apostas ganharam essa faixa. Pode ser `0`: a faixa acumulou. */
   winners: number;
-  /** Quanto **cada** aposta ganhadora recebeu, em reais. */
+  /** Quanto **cada** aposta ganhadora recebeu, em reais. `0` sem ganhador. */
   valuePerWinner: number;
 }
+
+/**
+ * @deprecated Use {@link PrizeTier}. Mantido como apelido para não quebrar
+ * quem já depende do nome na 0.2.x.
+ */
+export type TopPrize = PrizeTier;
 
 export interface Draw {
   lotteryCode: LotteryCode;
@@ -83,7 +89,19 @@ export interface Draw {
    * acumulado. Não confunda com `prizeValue`, que é a faixa principal e vem
    * `0` justamente nesse caso.
    */
-  topPrize?: TopPrize;
+  topPrize?: PrizeTier;
+  /**
+   * Todas as faixas de premiação do concurso, **na ordem da Caixa** — a
+   * primeira é o prêmio principal.
+   *
+   * Diferente de `topPrize`, aqui entram as faixas **sem ganhador**, com
+   * `winners: 0`. É o que permite dizer "1º prêmio: acumulou" em vez de
+   * omitir a linha, e omitir seria pior: o leitor não saberia se a faixa não
+   * existe ou se ninguém ganhou.
+   *
+   * Ausente quando a Caixa não devolve faixa alguma utilizável.
+   */
+  prizeTiers?: PrizeTier[];
   /**
    * Dezenas do segundo sorteio. Só a Dupla Sena tem dois sorteios por
    * concurso; nas demais modalidades o campo não vem.

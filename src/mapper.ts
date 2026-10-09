@@ -19,7 +19,7 @@
 import { addDrawDays, getDrawDaysOfWeek, getDrawTime } from './calendar.ts';
 import { InvalidResponseError } from './errors.ts';
 import { getLotteryName } from './lotteries.ts';
-import type { Draw, LotteryCode, TopPrize } from './types/public.ts';
+import type { Draw, LotteryCode, PrizeTier } from './types/public.ts';
 
 /**
  * Teto de sanidade para a projeção do concurso especial. O alvo de final 0/5
@@ -50,7 +50,8 @@ export function mapDraw(
     'dataProximoConcurso',
   );
   const nextDrawTime = nextDrawDate ? getDrawTime(code, nextDrawDate) : undefined;
-  const topPrize = readTopPrize(source);
+  const prizeTiers = readTiers(source);
+  const topPrize = readTopPrize(prizeTiers);
   const specialAccumulated = readNumber(source, 'valorAcumuladoConcursoEspecial');
   const secondDrawNumbers = readStringList(source, 'listaDezenasSegundoSorteio');
   const bonusNumbers = readStringList(source, 'trevosSorteados');
@@ -75,6 +76,7 @@ export function mapDraw(
     drawDaysOfWeek: getDrawDaysOfWeek(code),
     drawnNumbers: readStringList(source, 'listaDezenas'),
     ...(topPrize ? { topPrize } : {}),
+    ...(prizeTiers.length > 0 ? { prizeTiers } : {}),
     ...(secondDrawNumbers.length > 0 ? { secondDrawNumbers } : {}),
     ...(bonusNumbers.length > 0 ? { bonusNumbers } : {}),
     ...(bonusName ? { bonusName } : {}),
@@ -122,34 +124,55 @@ function projectSpecialDrawDate(
  * Devolve `undefined` quando nenhuma faixa teve ganhador: aí não há prêmio
  * pago, e inventar um seria mentir.
  */
-function readTopPrize(source: Record<string, unknown>): TopPrize | undefined {
-  let melhor: TopPrize | undefined;
+function readTopPrize(tiers: PrizeTier[]): PrizeTier | undefined {
+  let melhor: PrizeTier | undefined;
+
+  for (const faixa of tiers) {
+    // Faixa sem ganhador não disputa: o maior prêmio é o que foi **pago**.
+    if (faixa.winners <= 0) {
+      continue;
+    }
+    if (!melhor || faixa.valuePerWinner > melhor.valuePerWinner) {
+      melhor = faixa;
+    }
+  }
+
+  return melhor;
+}
+
+/**
+ * Todas as faixas utilizáveis, na ordem em que a Caixa as devolve.
+ *
+ * Faixa com número ilegível é **ignorada, não recusada**: a premiação é
+ * enriquecimento, e um campo estranho não pode impedir o concurso inteiro de
+ * ser mapeado. Faixa sem ganhador entra normalmente, com `winners: 0` — é o
+ * que distingue "acumulou" de "não existe".
+ *
+ * @param source Resposta bruta da Caixa.
+ * @returns As faixas legíveis, possivelmente vazia.
+ */
+function readTiers(source: Record<string, unknown>): PrizeTier[] {
+  const faixas: PrizeTier[] = [];
 
   for (const tier of readPrizeTiers(source)) {
     if (typeof tier !== 'object' || tier === null) {
       continue;
     }
-    const faixa = tier as Record<string, unknown>;
-    const winners = numeroOuNada(faixa['numeroDeGanhadores']);
-    const valuePerWinner = numeroOuNada(faixa['valorPremio']);
-
-    // Faixa incompleta é ignorada, não recusada: `topPrize` é enriquecimento,
-    // e um campo estranho aqui não pode impedir o concurso inteiro de ser
-    // mapeado — `prizeValue` nem depende dele.
-    if (winners === undefined || winners <= 0 || valuePerWinner === undefined) {
+    const bruto = tier as Record<string, unknown>;
+    const winners = numeroOuNada(bruto['numeroDeGanhadores']);
+    const valuePerWinner = numeroOuNada(bruto['valorPremio']);
+    if (winners === undefined || valuePerWinner === undefined) {
       continue;
     }
 
-    if (!melhor || valuePerWinner > melhor.valuePerWinner) {
-      melhor = {
-        tier: typeof faixa['descricaoFaixa'] === 'string' ? faixa['descricaoFaixa'] : '',
-        winners,
-        valuePerWinner,
-      };
-    }
+    faixas.push({
+      tier: typeof bruto['descricaoFaixa'] === 'string' ? bruto['descricaoFaixa'] : '',
+      winners,
+      valuePerWinner,
+    });
   }
 
-  return melhor;
+  return faixas;
 }
 
 /**
