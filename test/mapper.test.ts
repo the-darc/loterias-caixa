@@ -382,7 +382,7 @@ test('faixa sem os campos de ganhador é ignorada, sem derrubar o mapeamento', (
 
 test('prizeTiers traz todas as faixas, inclusive a que não teve ganhador', () => {
   // É o que distingue "o 1º prêmio acumulou" de "não existe 1º prêmio".
-  const draw = mapDraw('megasena', readFixture('latest/megasena.json'));
+  const draw = mapDraw('megasena', MEGASENA);
 
   assert.equal(draw.prizeTiers?.length, 3);
   assert.deepEqual(draw.prizeTiers?.[0], {
@@ -393,7 +393,7 @@ test('prizeTiers traz todas as faixas, inclusive a que não teve ganhador', () =
 });
 
 test('prizeTiers preserva a ordem da Caixa: a primeira é o prêmio principal', () => {
-  const draw = mapDraw('megasena', readFixture('latest/megasena.json'));
+  const draw = mapDraw('megasena', MEGASENA);
 
   assert.deepEqual(
     draw.prizeTiers?.map((faixa) => faixa.tier),
@@ -403,7 +403,7 @@ test('prizeTiers preserva a ordem da Caixa: a primeira é o prêmio principal', 
 
 test('faixa com número ilegível é pulada, sem derrubar o concurso', () => {
   const payload = {
-    ...readFixture('latest/megasena.json'),
+    ...MEGASENA,
     listaRateioPremio: [
       { descricaoFaixa: '6 acertos', faixa: 1, numeroDeGanhadores: 0, valorPremio: 0 },
       { descricaoFaixa: 'estranha', faixa: 2, numeroDeGanhadores: 'muitos', valorPremio: 10 },
@@ -424,7 +424,7 @@ test('sem faixa utilizável, prizeTiers fica ausente', () => {
   // mas sem o número de ganhadores ela não vira faixa de premiação. Sem
   // nenhuma utilizável, o campo some em vez de virar lista vazia.
   const payload = {
-    ...readFixture('latest/megasena.json'),
+    ...MEGASENA,
     listaRateioPremio: [{ faixa: 1, descricaoFaixa: '6 acertos', valorPremio: 100 }],
   };
 
@@ -437,7 +437,7 @@ test('sem faixa utilizável, prizeTiers fica ausente', () => {
 
 test('faixa sem descrição não vira "undefined" na tela', () => {
   const payload = {
-    ...readFixture('latest/megasena.json'),
+    ...MEGASENA,
     listaRateioPremio: [{ faixa: 1, numeroDeGanhadores: 1, valorPremio: 7 }],
   };
 
