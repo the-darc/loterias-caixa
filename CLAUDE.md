@@ -251,6 +251,26 @@ como `cancelledByParent`, o que faz o log apontar para o lugar errado.
 Dublê de `fetch` que espera abort precisa de um `setTimeout` segurando o loop,
 limpo no `abort`.
 
+### O verificador da API é outra coisa, e mora fora de `test/`
+
+`smoke/caixa.ts` (`npm run smoke`) consulta a **Caixa de verdade** e conta
+quantas das onze modalidades responderam. Ele existe porque a regra de não
+bater na rede, que é certa, tem um custo: pane do lado da Caixa passa
+despercebida pela suíte. Em outubro de 2026 o serviço da Super Sete respondeu
+erro por dias com os testes todos verdes.
+
+Três decisões que não são preferência:
+
+- **Fica fora de `test/`** para não entrar no glob `test/**/*.test.ts`. Assim
+  `npm test` continua sem tocar a rede, por construção e não por disciplina.
+- **Não entra no CI.** Roda em agenda própria (`.github/workflows/caixa.yml`),
+  e por isso instabilidade da Caixa nunca reprova um pull request. CI que fica
+  vermelho por culpa de terceiro é CI que ninguém mais lê.
+- **Publica um selo separado** no README, com a contagem de modalidades fora
+  do ar. O workflow escreve `smoke-report.json` no formato do shields.io e o
+  empurra para a branch órfã `badges` — órfã para guardar só o JSON, sem
+  arrastar histórico nem encher a `master` de commit diário.
+
 ### Rode a suíte nas duas versões antes de mexer em CI
 
 `nvm exec 22` e `nvm exec 24`. As diferenças acima não aparecem em nenhuma

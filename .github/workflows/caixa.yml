@@ -1,0 +1,72 @@
+
+# Verificação da API da Caixa — separada do CI de propósito.
+#
+# O CI responde "a lib está certa?" e roda offline, sobre as respostas
+# guardadas em `test/fixtures/`. Este workflow responde outra pergunta: "a
+# Caixa está no ar e devolvendo as onze modalidades?". Misturar as duas
+# deixaria o CI vermelho por instabilidade de terceiro, e um CI que fica
+# vermelho sozinho é um CI que ninguém mais lê.
+name: API da Caixa
+
+on:
+  schedule:
+    # 09h UTC, que é 06h de Brasília: depois dos sorteios da noite e antes de
+    # alguém começar o dia, para o badge já estar atualizado.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+# Uma execução por vez: duas ao mesmo tempo brigariam pelo push do badge.
+concurrency:
+  group: caixa
+  cancel-in-progress: false
+
+permissions:
+  # Escrita porque o badge é publicado numa branch do próprio repositório.
+  contents: write
+
+jobs:
+  smoke:
+    name: As 11 modalidades respondem?
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      - run: npm ci
+
+      # `continue-on-error` para que o badge seja publicado mesmo quando a
+      # Caixa estiver fora. O passo final reprova o job, preservando o sinal.
+      - name: Consultar a Caixa
+        id: smoke
+        continue-on-error: true
+        run: npm run smoke
+
+      # O badge mora numa branch órfã, recriada a cada execução: ela guarda só
+      # o JSON, sem arrastar o histórico nem poluir a `master` com um commit
+      # por dia.
+      - name: Publicar o badge
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          mkdir -p /tmp/badge
+          cp smoke-report.json /tmp/badge/caixa.json
+          git checkout --orphan badges
+          git rm -rf --cached . > /dev/null
+          rm -rf -- * .github
+          mkdir -p badge
+          cp /tmp/badge/caixa.json badge/caixa.json
+          git add -f badge/caixa.json
+          git commit -m "chore: estado da API da Caixa em $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f origin badges
+
+      # Reprova o job quando alguma modalidade falhou, para o badge de status
+      # do workflow também ficar vermelho e o alerta do GitHub disparar.
+      - name: Reprovar se alguma modalidade falhou
+        if: steps.smoke.outcome == 'failure'
+        run: exit 1

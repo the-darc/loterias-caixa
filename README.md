@@ -1,6 +1,14 @@
 # loterias-caixa
 
 [![CI](https://github.com/the-darc/loterias-caixa/actions/workflows/ci.yml/badge.svg)](https://github.com/the-darc/loterias-caixa/actions/workflows/ci.yml)
+[![API da Caixa](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fthe-darc%2Floterias-caixa%2Fbadges%2Fbadge%2Fcaixa.json)](https://github.com/the-darc/loterias-caixa/actions/workflows/caixa.yml)
+
+Os dois selos respondem perguntas diferentes. **CI** diz se a biblioteca está
+certa: roda offline, sobre respostas da Caixa guardadas no repositório, e só
+depende de nós. **API da Caixa** diz quantas das onze modalidades estão
+respondendo agora, consultando o serviço deles uma vez por dia — ele fica
+laranja quando a Caixa derruba alguma, o que acontece sem aviso e não é bug da
+lib.
 
 Biblioteca Node.js para consultar os resultados das loterias da Caixa
 Econômica Federal (Mega-Sena, Quina, Lotofácil e outras 8 modalidades).
@@ -174,12 +182,20 @@ npm run test:coverage        # com relatório de cobertura
 npm run test:coverage:strict # o mesmo, falhando abaixo de 100% (é o gate do CI)
 npm run typecheck            # valida tipos de src/ e test/
 npm run build                # gera dist/
+npm run smoke                # consulta a Caixa de verdade (veja abaixo)
 ```
 
 Os testes rodam sobre os arquivos `.ts` sem etapa de build, usando o suporte
 nativo do Node a TypeScript e o runner `node:test`. Nenhum teste acessa a
 rede — a suíte passa offline, sobre as respostas reais guardadas em
 [test/fixtures/](test/fixtures/README.md).
+
+**`npm run smoke` é o oposto, e por isso mora fora de `test/`:** ele consulta
+a Caixa de verdade e diz quantas modalidades responderam. É o que pega pane do
+lado deles, que a suíte não vê nem deveria ver — em outubro de 2026 o serviço
+da Super Sete respondeu erro por dias com todos os testes verdes. Ele não
+entra no CI: roda em agenda própria, publica o selo acima e falha sozinho sem
+reprovar um pull request por instabilidade de terceiro.
 
 O CI roda typecheck, a suíte com gate de 100% de cobertura e o build em Node
 22.x e 24.x, e ainda confere que o `dist/` publicado carrega por `require()` e

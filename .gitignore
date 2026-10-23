@@ -8,3 +8,6 @@ dist/
 # local virou dependência no package-lock.json e o CI do backend quebrou com
 # ENOENT, porque o caminho não existe no runner.
 *.tgz
+
+# Relatório do verificador da API, gerado a cada execução.
+smoke-report.json

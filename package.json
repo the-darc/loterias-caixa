@@ -37,6 +37,7 @@
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" \"test/**/*.test.ts\"",
     "test:coverage:strict": "node --test --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"test/**/*.test.ts\"",
     "test:watch": "node --test --watch \"test/**/*.test.ts\"",
+    "smoke": "node smoke/caixa.ts",
     "prepublishOnly": "npm run clean && npm run build && npm test"
   },
   "keywords": [
